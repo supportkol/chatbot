@@ -7,6 +7,7 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
+    
     const { message } = await req.json(); // Frontend se customer ka message lena
 
     // 1. Local System se products.txt ka path nikalna aur read karna
