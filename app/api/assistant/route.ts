@@ -1,72 +1,93 @@
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
+import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    
-    const { message } = await req.json(); // Frontend se customer ka message lena
+    const { message } = await req.json();
 
-    // 1. Local System se products.txt ka path nikalna aur read karna
     const filePath = path.join(process.cwd(), 'products.txt');
-    
     if (!fs.existsSync(filePath)) {
-      return new Response(JSON.stringify({ reply: "Error: Local products.txt file not found in root directory." }), { status: 404 });
+      return new Response(JSON.stringify({ reply: "Error: Local products.txt file not found." }), { status: 404 });
     }
-
     const fileContent = fs.readFileSync(filePath, 'utf-8');
-
-    // 2. File ko '----' ke basis par split karke saare products ki list banana
     const allProducts = fileContent.split('----');
 
-    // 3. Mini Local Search Engine: User ke message ke keywords ke hisaab se products filter karna
-    const keywords = message.toLowerCase().split(' ').filter((k: string) => k.length > 2);
-    
-    let matchedProducts = allProducts.filter(productBlock => {
-      // Check agar product ke andar saare keywords maujood hain
-      return keywords.every((kw: string) => productBlock.toLowerCase().includes(kw));
-    }).slice(0, 4); // Top 4 matching products hi OpenAI ko bhejenge takki token limit cross na ho
+    // ========================================================
+    // 🌟 STEP 1: OPENAI SE SPELLING AUR KEYWORDS THEEK KARWANA
+    // ========================================================
+    const keywordCompletion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { 
+          role: 'system', 
+          content: 'You are an eCommerce search optimizer. Extract 2-3 main clothing keywords from the user message. Correct any spelling mistakes (e.g., sharee -> saree, lehanga -> lehenga). Ignore stop words like "color", "show", "me", "want". Output ONLY the keywords separated by spaces. Example output: red saree' 
+        },
+        { role: 'user', content: message }
+      ],
+      temperature: 0, // 0 temperature taaki ye exact result de
+    });
 
-    // Agar exact match na mile, toh partial match try karein
-    if (matchedProducts.length === 0) {
+    const aiCleanedText = keywordCompletion.choices[0]?.message?.content || "";
+    const keywords = aiCleanedText.toLowerCase().split(' ').filter(k => k.length > 2);
+
+    console.log("Original Message:", message);
+    console.log("AI Extracted Keywords:", keywords);
+
+    // ========================================================
+    // 🔍 STEP 2: LOCAL SEARCH (AI ke diye gaye clean keywords se)
+    // ========================================================
+    let matchedProducts = allProducts.filter(productBlock => {
+      return keywords.every((kw: string) => productBlock.toLowerCase().includes(kw));
+    }).slice(0, 4);
+
+    if (matchedProducts.length === 0 && keywords.length > 0) {
       matchedProducts = allProducts.filter(productBlock => {
         return keywords.some((kw: string) => productBlock.toLowerCase().includes(kw));
       }).slice(0, 4);
     }
 
-    // 4. System Prompt taiyar karna filtered products ke saath
+    // ========================================================
+    // 🤖 STEP 3: FINAL OPENAI RESPONSE (Cards generate karne ke liye)
+    // ========================================================
     const systemInstruction = `
       You are the luxury ethnic wear assistant for Like A Diva (https://www.likeadiva.com/).
       
-      Here is the raw data of relevant products found directly on our local system for the user's query:
+      Relevant products found in local system:
       ===================================
       ${matchedProducts.join('\n----\n')}
       ===================================
 
       YOUR TASK:
-      1. If relevant products are found in the data above, introduce them beautifully.
-      2. For EVERY product you display, you MUST use this exact single-line format so the frontend can build product cards:
+      1. Introduce the products nicely to the customer.
+      2. For EVERY product you display, you MUST use this exact single-line format:
          PRODUCT_CARD|Name: [Product Name]|Price: ₹[Cost Price]|Image: [First URL from Image Paths]|Link: [Store URL]
-      3. From 'Image Paths:', pick ONLY the very first URL link.
-      4. If no relevant products are found in the local data above, politely tell the user that you couldn't find matching items right now and ask them to browse categories on our website.
+      3. From 'Image Paths:', grab ONLY the very first URL link starting with http.
+      4. Do not put any hyphens, asterisks, or numbers before the PRODUCT_CARD line.
     `;
 
-    // 5. OpenAI call pure local context ke saath
-    const response = await generateText({
-      model: openai('gpt-4o-mini'),
-      system: systemInstruction,
-      prompt: message,
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: message }
+      ],
     });
 
-    return new Response(JSON.stringify({ reply: response.text }), {
+    const replyText = completion.choices[0]?.message?.content || "I couldn't find any products matching your query.";
+
+    return new Response(JSON.stringify({ reply: replyText }), {
       headers: { 'Content-Type': 'application/json' },
     });
 
   } catch (error: any) {
-    console.error('❌ LOCAL OPENAI ERROR:', error);
+    console.error('❌ PRODUCTION BACKEND ERROR:', error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
