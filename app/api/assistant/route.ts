@@ -45,19 +45,20 @@ export async function POST(req: Request) {
     // ========================================================
     let matchedProducts = allProducts.filter(productBlock => {
       return keywords.every((kw: string) => productBlock.toLowerCase().includes(kw));
-    }).slice(0, 4);
+    }).slice(0, 20);
 
     if (matchedProducts.length === 0 && keywords.length > 0) {
       matchedProducts = allProducts.filter(productBlock => {
         return keywords.some((kw: string) => productBlock.toLowerCase().includes(kw));
-      }).slice(0, 4);
+      }).slice(0, 20);
     }
 
     // ========================================================
     // 🤖 STEP 3: FINAL OPENAI RESPONSE (Cards generate karne ke liye)
     // ========================================================
     const systemInstruction = `
-      You are the luxury ethnic wear assistant for Like A Diva (https://www.likeadiva.com/).
+      
+      You are the luxury ethnic wear assistant for Like A Diva.
       
       Relevant products found in local system:
       ===================================
@@ -67,9 +68,11 @@ export async function POST(req: Request) {
       YOUR TASK:
       1. Introduce the products nicely to the customer.
       2. For EVERY product you display, you MUST use this exact single-line format:
-         PRODUCT_CARD|Name: [Product Name]|Price: ₹[Cost Price]|Image: [First URL from Image Paths]|Link: [Store URL]
-      3. From 'Image Paths:', grab ONLY the very first URL link starting with http.
-      4. Do not put any hyphens, asterisks, or numbers before the PRODUCT_CARD line.
+         PRODUCT_CARD|Name: [Product Name]|Price: ₹[Price]|Image: [First URL]|Link: [Store URL]|Code: [Product Code/SKU]|Desc: [Point 1] ~ [Point 2] ~ [Point 3] ~ [Point 4] ~ [Point 5]
+      3. For the 'Desc' field, generate exactly 5 short bullet points (like Fabric, Work, or Occasion) based on the product data. Separate each point using a tilde (~).
+         Example: Desc: Premium Silk Fabric ~ Intricate Zari Embroidery ~ Perfect for Weddings
+      4. From 'Image Paths:', grab ONLY the very first URL link starting with http.
+      5. Do not put any hyphens, asterisks, or numbers before the PRODUCT_CARD line.
     `;
 
     const completion = await openai.chat.completions.create({

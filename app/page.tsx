@@ -35,6 +35,9 @@ export default function PremiumEcomChatWidget() {
         const price = parts.find(p => p.startsWith('Price:'))?.replace('Price:', '').trim() || '';
         const image = parts.find(p => p.startsWith('Image:'))?.replace('Image:', '').trim() || '';
         const link = parts.find(p => p.startsWith('Link:'))?.replace('Link:', '').trim() || '';
+        const code = parts.find(p => p.startsWith('Code:'))?.replace('Code:', '').trim();
+        const rawDesc = parts.find(p => p.startsWith('Desc:'))?.replace('Desc:', '').trim();
+        const descPoints = rawDesc ? rawDesc.split('~').map(pt => pt.trim()) : [];
 
         productCards.push(
           <div key={index} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition flex flex-col w-full text-black">
@@ -59,9 +62,18 @@ export default function PremiumEcomChatWidget() {
                 <h4 className="font-semibold text-xs text-gray-800 line-clamp-2 leading-tight min-h-[2rem]">
                   {name}
                 </h4>
+                {code && <span className="text-xs font-semibold text-gray-500 mb-1">Code: {code}</span>}
                 <p className="text-blue-600 font-black text-base mt-1">
                   {price}
                 </p>
+                {/* 4. Point-by-Point Description */}
+                {descPoints.length > 0 && (
+                  <ul className="text-sm text-gray-600 mb-4 list-disc pl-5 text-left space-y-1">
+                    {descPoints.map((point, i) => (
+                      <li key={i}>{point}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {/* REDIRECT BUTTON */}
