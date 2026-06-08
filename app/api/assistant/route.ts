@@ -45,12 +45,12 @@ export async function POST(req: Request) {
     // ========================================================
     let matchedProducts = allProducts.filter(productBlock => {
       return keywords.every((kw: string) => productBlock.toLowerCase().includes(kw));
-    }).slice(0, 100);
+    }).slice(0, 10);
 
     if (matchedProducts.length === 0 && keywords.length > 0) {
       matchedProducts = allProducts.filter(productBlock => {
         return keywords.some((kw: string) => productBlock.toLowerCase().includes(kw));
-      }).slice(0, 100);
+      }).slice(0, 10);
     }
 
     // ========================================================
