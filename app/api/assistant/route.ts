@@ -45,34 +45,29 @@ export async function POST(req: Request) {
     // ========================================================
     let matchedProducts = allProducts.filter(productBlock => {
       return keywords.every((kw: string) => productBlock.toLowerCase().includes(kw));
-    }).slice(0, 20);
+    }).slice(0, 100);
 
     if (matchedProducts.length === 0 && keywords.length > 0) {
       matchedProducts = allProducts.filter(productBlock => {
         return keywords.some((kw: string) => productBlock.toLowerCase().includes(kw));
-      }).slice(0, 20);
+      }).slice(0, 100);
     }
 
     // ========================================================
     // 🤖 STEP 3: FINAL OPENAI RESPONSE (Cards generate karne ke liye)
     // ========================================================
     const systemInstruction = `
-      
       You are the luxury ethnic wear assistant for Like A Diva.
       
-      Relevant products found in local system:
-      ===================================
+      Products:
       ${matchedProducts.join('\n----\n')}
-      ===================================
 
-      YOUR TASK:
-      1. Introduce the products nicely to the customer.
-      2. For EVERY product you display, you MUST use this exact single-line format:
-         PRODUCT_CARD|Name: [Product Name]|Price: ₹[Price]|Image: [First URL]|Link: [Store URL]|Code: [Product Code/SKU]|Desc: [Point 1] ~ [Point 2] ~ [Point 3] ~ [Point 4] ~ [Point 5]
-      3. For the 'Desc' field, generate exactly 5 short bullet points (like Fabric, Work, or Occasion) based on the product data. Separate each point using a tilde (~).
-         Example: Desc: Premium Silk Fabric ~ Intricate Zari Embroidery ~ Perfect for Weddings
-      4. From 'Image Paths:', grab ONLY the very first URL link starting with http.
-      5. Do not put any hyphens, asterisks, or numbers before the PRODUCT_CARD line.
+      STRICT RULES:
+      1. DO NOT output any introductory or concluding sentences. Give ONLY the product cards.
+      2. Format strictly:
+         PRODUCT_CARD|Name: [Name]|Price: ₹[Price]|Image: [FULL HTTP URL]|Link: [URL]|Code: [SKU]|Desc: [Point1] ~ [Point2] ~ [Point3] ~ [Point4] ~ [Point5]
+      3. For the 'Image' field, you MUST extract the FULL absolute URL starting with "https://". DO NOT output just the image filename. If no http link is found, leave it empty.
+      4. Make the 5 description points extremely short (2-3 words each).
     `;
 
     const completion = await openai.chat.completions.create({
